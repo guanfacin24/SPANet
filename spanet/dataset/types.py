@@ -126,6 +126,7 @@ class SpecialKey(str, Enum):
     Permutations = "PERMUTATIONS"
     Classifications = "CLASSIFICATIONS"
     Embeddings = "EMBEDDINGS"
+    Weights = "WEIGHTS"
 
 
 class Source(NamedTuple):

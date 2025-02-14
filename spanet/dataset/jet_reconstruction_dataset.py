@@ -111,6 +111,7 @@ class JetReconstructionDataset(Dataset):
             self.assignments = self.load_assignments(file, limit_index)
             self.regressions, self.regression_types = self.load_regressions(file, limit_index)
             self.classifications = self.load_classifications(file, limit_index)
+            ### TODO: self.custom_weights = self.load_custom_weights(file, limit_index)
 
             # Update size information after loading and limiting dataset.
             self.num_events = limit_index.shape[0]
@@ -278,6 +279,13 @@ class JetReconstructionDataset(Dataset):
             for daughter in self.event_info.product_particles[particle]:
                 for target in self.event_info.classifications[particle][daughter]:
                     add_target(*tree_key_data([particle, daughter], target))
+
+        return targets
+
+    def load_custom_weights(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Dict[str, Tensor]:
+        tree_key_data = functools.partial(self.tree_key_data, *hdf5_file, limit_index, SpecialKey.Weights)
+
+        targets = OrderedDict()
 
         return targets
 
