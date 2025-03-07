@@ -111,7 +111,7 @@ class JetReconstructionDataset(Dataset):
             self.assignments = self.load_assignments(file, limit_index)
             self.regressions, self.regression_types = self.load_regressions(file, limit_index)
             self.classifications = self.load_classifications(file, limit_index)
-            ### TODO: self.custom_weights = self.load_custom_weights(file, limit_index)
+            self.custom_weights = self.load_custom_weights(file, limit_index)
 
             # Update size information after loading and limiting dataset.
             self.num_events = limit_index.shape[0]
@@ -129,7 +129,7 @@ class JetReconstructionDataset(Dataset):
             self.limit_dataset_to_jet_count(vector_limit)
 
     @staticmethod
-    def dataset(hdf5_file: h5py.File, group: List[str], key: str) -> h5py.Dataset:
+    def dataset(hdf5_file: h5py.File, group: List[str], key = str) -> h5py.Dataset:
         group_string = "/".join(group)
         key_string = "/".join(group + [key])
         if key in hdf5_file[group_string]:
@@ -220,7 +220,6 @@ class JetReconstructionDataset(Dataset):
             try:
                 target_weight = self.dataset(hdf5_file, [SpecialKey.Targets, event_particle], SpecialKey.Weight)
             except KeyError:
-                print("Warning: no target weights in the dataset, creating ones weights")
                 target_weight = torch.ones_like(target_mask, dtype=float)
 
             target_data = target_data[limit_index]
@@ -282,12 +281,26 @@ class JetReconstructionDataset(Dataset):
 
         return targets
 
-    def load_custom_weights(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Dict[str, Tensor]:
-        tree_key_data = functools.partial(self.tree_key_data, *hdf5_file, limit_index, SpecialKey.Weights)
+    def load_custom_weights(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Tensor:
+        tree_key_data = functools.partial(self.tree_key_data, hdf5_file, limit_index, SpecialKey.CustomWeights)
 
-        targets = OrderedDict()
+        weights = 1.
+        weight_types = self.event_info.custom_weights[SpecialKey.Event]
+        num_weights = len(weight_types)
+        if num_weights > 1:
+            print(
+                "More than one custom event weight type specified\n"
+                "Weights will be multiplied"
+            )
 
-        return targets
+        for weight in weight_types:
+            try:
+                weights *= torch.from_numpy(
+                    hdf5_file[SpecialKey.CustomWeights][SpecialKey.Event][weight][:]
+                )
+            except KeyError: continue
+
+        return weights
 
     def compute_source_statistics(
             self,
@@ -487,5 +500,6 @@ class JetReconstructionDataset(Dataset):
             self.num_vectors[item],
             assignments,
             regressions,
-            classifications
+            classifications,
+            item
         )

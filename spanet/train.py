@@ -48,7 +48,23 @@ def main(
         batch_size: Optional[int],
         limit_dataset: Optional[float],
         random_seed: int,
+
+        show_options: Optional[bool]
     ):
+
+    print(
+        "                                       ,_     _          \n"
+        "                                       |\\\\_,-~/        \n"
+        "  _____ _____        _   _      _      / _  _ |    ,--.  \n"   
+        " / ____|  __ \ /\   | \ | |    | |    (  @  @ )   / ,-'  \n"  
+        "| (___ | |__) /  \  |  \| | ___| |_    \  _T_/-._( (     \n" 
+        " \___ \|  ___/ /\ \ | . ` |/ _ \ __|   /         `. \\   \n"
+        " ____) | |  / ____ \| |\  |  __/ |_   |         _  \ |   \n"
+        "|_____/|_| /_/    \_\_| \_|\___|\__|   \ \ ,  /      |   \n"
+        "                                        || |-_\__   /    \n"
+        " KAI'S VERSION (0.0.1)                 ((_/`(____,-'     \n"
+        "                                        @asciiart.eu     \n"
+    )
 
     # Whether or not this script version is the master run or a worker
     master = True
@@ -104,7 +120,12 @@ def main(
     # Print the full hyperparameter list
     # -------------------------------------------------------------------------------------------------------
     if master:
-        options.display()
+        if show_options:
+            options.display()
+        else:
+            print(
+                "Display of full parameter list is disabled, use -opt to enable"
+            )
 
     # -------------------------------------------------------------------------------------------------------
     # Begin the training loop
@@ -255,5 +276,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--profile", action='store_true',
                         help="Profile network for a single training epoch.")
+
+    parser.add_argument("-opt", "--show-options", action="store_true",
+                        help="Show full list of options.")
 
     main(**parser.parse_args().__dict__)
