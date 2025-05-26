@@ -282,9 +282,11 @@ class JetReconstructionDataset(Dataset):
         return targets
 
     def load_custom_weights(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Tensor:
-        tree_key_data = functools.partial(self.tree_key_data, hdf5_file, limit_index, SpecialKey.CustomWeights)
 
-        weights = 1.
+
+        weights = torch.from_numpy(
+            np.ones_like(limit_index, dtype = float)
+        )
         weight_types = self.event_info.custom_weights[SpecialKey.Event]
         num_weights = len(weight_types)
         if num_weights > 1:
@@ -296,7 +298,7 @@ class JetReconstructionDataset(Dataset):
         for weight in weight_types:
             try:
                 weights *= torch.from_numpy(
-                    hdf5_file[SpecialKey.CustomWeights][SpecialKey.Event][weight][:]
+                    hdf5_file[SpecialKey.CustomWeights][SpecialKey.Event][weight][limit_index]
                 )
             except KeyError: continue
 
