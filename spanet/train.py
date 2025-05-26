@@ -11,6 +11,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks.progress.rich_progress import _RICH_AVAILABLE
 from pytorch_lightning.loggers.wandb import _WANDB_AVAILABLE, WandbLogger
 
+from pytorch_lightning.callbacks.progress.rich_progress import RichProgressBarTheme
+
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
@@ -21,7 +23,7 @@ from pytorch_lightning.callbacks import (
     TQDMProgressBar
 )
 
-from spanet import JetReconstructionModel, Options
+from spanet import JetReconstructionModel, Options, pbar
 
 
 def main(
@@ -150,10 +152,28 @@ def main(
     #     TensorBoardLogger(save_dir=log_dir, name=name)
     # )
 
+    # Create a tidier progress bar
+    rich_progress_bar = RichProgressBar(
+        theme = RichProgressBarTheme(
+            progress_bar = "cyan",
+            progress_bar_finished = "blue"
+        )
+    )
+
+    class MyProgressBar(RichProgressBar):
+        def __init__(self):
+            super().__init__()
+
+        def on_validation_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+            super().on_validation_epoch_end(trainer, pl_module)
+            metrics = self.get_metrics(trainer, pl_module)
+            self._console.print(metrics)
+
     # Create the checkpoint for this training run. We will save the best validation networks based on 'accuracy'
     callbacks = [
         ModelCheckpoint(
-            verbose=options.verbose_output,
+            #verbose=options.verbose_output,
+            verbose=False,
             filename='{epoch}-{step}-{validation_average_jet_accuracy:.3f}',
             monitor='validation_average_jet_accuracy',
             save_top_k=3,
@@ -162,7 +182,7 @@ def main(
         ),
         LearningRateMonitor(),
         DeviceStatsMonitor(),
-        RichProgressBar() if _RICH_AVAILABLE else TQDMProgressBar(),
+        pbar.MyProgressBar() if _RICH_AVAILABLE else TQDMProgressBar(),
         RichModelSummary(max_depth=1) if _RICH_AVAILABLE else ModelSummary(max_depth=1)
     ]
 
