@@ -52,19 +52,10 @@ def main(
         show_options: Optional[bool]
     ):
 
-    print(
-        "                                       ,_     _          \n"
-        "                                       |\\\\_,-~/        \n"
-        "  _____ _____        _   _      _      / _  _ |    ,--.  \n"   
-        " / ____|  __ \ /\   | \ | |    | |    (  @  @ )   / ,-'  \n"  
-        "| (___ | |__) /  \  |  \| | ___| |_    \  _T_/-._( (     \n" 
-        " \___ \|  ___/ /\ \ | . ` |/ _ \ __|   /         `. \\   \n"
-        " ____) | |  / ____ \| |\  |  __/ |_   |         _  \ |   \n"
-        "|_____/|_| /_/    \_\_| \_|\___|\__|   \ \ ,  /      |   \n"
-        "                                        || |-_\__   /    \n"
-        " KAI'S VERSION (0.0.1)                 ((_/`(____,-'     \n"
-        "                                        @asciiart.eu     \n"
-    )
+    # Print header with information about version
+    print("\n_________________________SPANet_________________________")
+    print("-> On RWTH+DESY fork")
+    print("-> Version 2.2.0 (SPANet base) - 0.0.1 (fork)\n")
 
     # Whether or not this script version is the master run or a worker
     master = True
