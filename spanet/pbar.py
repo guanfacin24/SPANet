@@ -1,6 +1,8 @@
+from collections import OrderedDict
 from pytorch_lightning.callbacks.progress.rich_progress import (
     RichProgressBar, RichProgressBarTheme, MetricsTextColumn, CustomProgress
 )
+from pytorch_lightning.trainer import trainer as pltrainer
 from rich import get_console, reconfigure
 from rich.text import Text
 from rich.progress import TaskID
@@ -33,10 +35,34 @@ class MyMetricsTextColumn(MetricsTextColumn):
         text = self._text_delimiter.join(metrics_texts)
         return Text(text, justify="left", style="bold cyan")
 
+# It was initially intended to be a table - might come in the future
+class MyMetricsTable:
+    def __init__(self):
+        self._metrics = None
+        self._ordered_metrics = None
+
+    def update(self, metrics):
+        self._metrics = metrics
+
+    def _format_metrics(self):
+        self._metrics.pop("v_num")
+        self._ordered_metrics = OrderedDict()
+        self._ordered_metrics["epoch"] = self._metrics["epoch"]
+        self._ordered_metrics["avg_jet_acc"] = round(self._metrics["validation_average_jet_accuracy"], 3)
+        for key, value in self._metrics.items():
+            if key not in ["epoch", "validation_average_jet_accuracy"]:
+                self._ordered_metrics[key] = round(value, 3)
+
+    def render(self):
+        self._format_metrics()
+        return dict(self._ordered_metrics)
+
 
 class MyProgressBar(RichProgressBar):
     def __init__(self):
+        self._metrics_table = MyMetricsTable()
         super().__init__()
+
 
     def _init_progress(self, trainer: "pl.Trainer") -> None:
         if self.is_enabled and (self.progress is None or self._progress_stopped):
@@ -52,7 +78,6 @@ class MyProgressBar(RichProgressBar):
             )
             self.progress = CustomProgress(
                 *self.configure_columns(trainer),
-                self._metric_component,
                 auto_refresh=False,
                 disable=self.is_disabled,
                 console=self._console,
@@ -60,3 +85,17 @@ class MyProgressBar(RichProgressBar):
             self.progress.start()
             # progress has started
             self._progress_stopped = False
+
+    def _update_metrics(self, trainer, pl_module) -> None:
+        metrics = self.get_metrics(trainer, pl_module)
+        if self._metric_component:
+            self._metric_component.update(metrics)
+            self._metrics_table.update(metrics | {"epoch": trainer.current_epoch})
+
+    def on_validation_end(self, trainer, pl_module) -> None:
+        if trainer.state.fn == "fit":
+            self._update_metrics(trainer, pl_module)
+            self.progress.console.print(
+                self._metrics_table.render()
+            )
+        self.reset_dataloader_idx_tracker()

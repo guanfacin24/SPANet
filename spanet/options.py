@@ -268,6 +268,12 @@ class Options(Namespace):
 
         self.trial_output_dir: str = './test_output'
 
+        # =========================================================================================
+        # Logging Options
+        # =========================================================================================
+
+        self.tracking_metrics: list[str] = []
+
     def display(self):
         try:
             from rich import get_console
