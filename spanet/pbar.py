@@ -37,30 +37,55 @@ class MyMetricsTextColumn(MetricsTextColumn):
 
 # It was initially intended to be a table - might come in the future
 class MyMetricsTable:
-    def __init__(self):
+    def __init__(self, central_metric):
+        self._central_metric_name, self._central_metric_mode = central_metric
         self._metrics = None
         self._ordered_metrics = None
+        self._best_values = [0, 0, 0]
+        self._istop3 = False
 
-    def update(self, metrics):
+
+    def update_metrics(self, metrics):
         self._metrics = metrics
+
+    def _update_best_values(self):
+        if self._central_metric_mode == 'max':
+            if self._metrics[self._central_metric_name] > self._best_values[-1]:
+                self._best_values.append(self._metrics[self._central_metric_name])
+                self._best_values.sort(reverse = True)
+                self._best_values.pop(-1)
+                self._istop3 = True
+            else:
+                self._istop3 = False
+        else:
+            if self._metrics[self._central_metric_name] < self._best_values[-1]:
+                self._best_values.append(self._metrics[self._central_metric_name])
+                self._best_values.sort()
+                self._best_values.pop(-1)
+                self._istop3 = True
+            else:
+                self._istop3 = False
 
     def _format_metrics(self):
         self._metrics.pop("v_num")
         self._ordered_metrics = OrderedDict()
         self._ordered_metrics["epoch"] = self._metrics["epoch"]
-        self._ordered_metrics["avg_jet_acc"] = round(self._metrics["validation_average_jet_accuracy"], 3)
+        self._ordered_metrics[self._central_metric_name] = round(self._metrics[self._central_metric_name], 3)
         for key, value in self._metrics.items():
-            if key not in ["epoch", "validation_average_jet_accuracy"]:
+            if key not in ["epoch", self._central_metric_name]:
                 self._ordered_metrics[key] = round(value, 3)
+        self._ordered_metrics["is_top3"] = self._istop3
 
     def render(self):
+        self._update_best_values()
         self._format_metrics()
         return dict(self._ordered_metrics)
 
 
 class MyProgressBar(RichProgressBar):
-    def __init__(self):
-        self._metrics_table = MyMetricsTable()
+    def __init__(self, central_metric):
+        self._central_metric = central_metric
+        self._metrics_table = MyMetricsTable(self._central_metric)
         super().__init__()
 
 
@@ -70,12 +95,6 @@ class MyProgressBar(RichProgressBar):
             reconfigure(**self._console_kwargs)
             self._console = get_console()
             self._console.clear_live()
-            self._metric_component = MyMetricsTextColumn(
-                trainer,
-                self.theme.metrics,
-                self.theme.metrics_text_delimiter,
-                self.theme.metrics_format,
-            )
             self.progress = CustomProgress(
                 *self.configure_columns(trainer),
                 auto_refresh=False,
@@ -90,7 +109,7 @@ class MyProgressBar(RichProgressBar):
         metrics = self.get_metrics(trainer, pl_module)
         if self._metric_component:
             self._metric_component.update(metrics)
-            self._metrics_table.update(metrics | {"epoch": trainer.current_epoch})
+            self._metrics_table.update_metrics(metrics | {"epoch": trainer.current_epoch})
 
     def on_validation_end(self, trainer, pl_module) -> None:
         if trainer.state.fn == "fit":

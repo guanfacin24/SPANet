@@ -272,7 +272,11 @@ class Options(Namespace):
         # Logging Options
         # =========================================================================================
 
+        # Metrics to be tracked on the progress bar
         self.tracking_metrics: list[str] = []
+
+        # Central metric with which different epoch will be evaluated and also whether it shall be maximized or minimized
+        self.central_metric: tuple[str, str] = ("validation_average_jet_accuracy", "max")
 
     def display(self):
         try:

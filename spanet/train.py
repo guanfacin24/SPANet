@@ -174,15 +174,15 @@ def main(
         ModelCheckpoint(
             #verbose=options.verbose_output,
             verbose=False,
-            filename='{epoch}-{step}-{validation_average_jet_accuracy:.3f}',
-            monitor='validation_average_jet_accuracy',
+            filename='{epoch}-{step}-{' + options.central_metric[0] +':.3f}',
+            monitor=options.central_metric[0],
             save_top_k=3,
-            mode='max',
+            mode=options.central_metric[1],
             save_last=True
         ),
         LearningRateMonitor(),
         DeviceStatsMonitor(),
-        pbar.MyProgressBar() if _RICH_AVAILABLE else TQDMProgressBar(),
+        pbar.MyProgressBar(options.central_metric) if _RICH_AVAILABLE else TQDMProgressBar(),
         RichModelSummary(max_depth=1) if _RICH_AVAILABLE else ModelSummary(max_depth=1)
     ]
 
