@@ -16,6 +16,7 @@ class JetReconstructionValidation(JetReconstructionNetwork):
     def __init__(self, options: Options, torch_script: bool = False):
         super(JetReconstructionValidation, self).__init__(options, torch_script)
         self.evaluator = SymmetricEvaluator(self.training_dataset.event_info)
+        self.options = options
         if self.balance_particles:
             self.particle_index_tensor_np = self.particle_index_tensor.cpu().detach().numpy()
             self.particle_weights_tensor_np = self.particle_weights_tensor.cpu().detach().numpy()
@@ -177,7 +178,7 @@ class JetReconstructionValidation(JetReconstructionNetwork):
         for name, value in metrics.items():
             if not np.isnan(value):
                 pbar_log = name in self.options.tracking_metrics
-                if name == "validation_average_jet_accuracy": pbar_log = True
+                if name == self.options.central_metric[0]: pbar_log = True
                 self.log(name, value, sync_dist=True, on_epoch=True, prog_bar=pbar_log)
 
         # self.validation_step_metrics_outputs.append(metrics)
