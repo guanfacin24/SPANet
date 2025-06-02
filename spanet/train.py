@@ -57,7 +57,7 @@ def main(
     # Print header with information about version
     print("\n_________________________SPANet_________________________")
     print("-> On RWTH+DESY fork")
-    print("-> Version 2.2.0 (SPANet base) - 0.0.1 (fork)\n")
+    print("-> Version 2.2.0 (SPANet base) - 0.1.0 (fork)\n")
 
     # Whether or not this script version is the master run or a worker
     master = True
