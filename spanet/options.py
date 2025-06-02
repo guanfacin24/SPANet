@@ -272,7 +272,7 @@ class Options(Namespace):
         # Logging Options
         # =========================================================================================
 
-        # Metrics to be tracked on the progress bar
+        # Metrics to be tracked on the progress bar, f.e "EVENT/<TARGET_NAME>_accuracy"
         self.tracking_metrics: list[str] = []
 
         # Central metric with which different epoch will be evaluated and also whether it shall be maximized or minimized

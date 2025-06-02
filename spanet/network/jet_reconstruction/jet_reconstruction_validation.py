@@ -157,12 +157,10 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             delta = regressions[key] - regression_targets[key]
             
             percent_error = np.abs(delta / regression_targets[key])
-            log_name = f"REGRESSION/{key}_percent_error"
-            self.log(log_name, percent_error.mean(), sync_dist=True, prog_bar = log_name in self.options.tracking_metrics)
+            metrics[f"REGRESSION/{key}_percent_error"] = percent_error.mean()
 
             absolute_error = np.abs(delta)
-            log_name = f"REGRESSION/{key}_absolute_error"
-            self.log(log_name, absolute_error.mean(), sync_dist=True, prog_bar = log_name in self.options.tracking_metrics)
+            metrics[f"REGRESSION/{key}_absolute_error"] = absolute_error.mean()
 
             percent_deviation = delta / regression_targets[key]
             self.logger.experiment.add_histogram(f"REGRESSION/{key}_percent_deviation", percent_deviation, self.global_step)
@@ -172,14 +170,21 @@ class JetReconstructionValidation(JetReconstructionNetwork):
 
         for key in classifications:
             accuracy = (classifications[key] == classification_targets[key])
-            log_name = f"CLASSIFICATION/{key}_accuracy"
-            self.log(log_name, accuracy.mean(), sync_dist=True, prog_bar=log_name in self.options.tracking_metrics)
+            metrics[f"CLASSIFICATION/{key}_accuracy"] = accuracy.mean()
 
+        ### Check whether all tracking metrics are available
+        for item in self.options.tracking_metrics:
+            if item not in metrics.keys():
+                raise KeyError(
+                    f"Metric {item} not available. Available metrics: {metrics.keys()}"
+                )
+
+        ### Log metrics
         for name, value in metrics.items():
             if not np.isnan(value):
                 pbar_log = name in self.options.tracking_metrics
                 if name == self.options.central_metric[0]: pbar_log = True
-                self.log(name, value, sync_dist=True, on_epoch=True, prog_bar=pbar_log)
+                self.log(name, value, sync_dist = True, on_epoch = True, prog_bar = pbar_log)
 
         # self.validation_step_metrics_outputs.append(metrics)
 
