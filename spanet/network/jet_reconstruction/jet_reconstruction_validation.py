@@ -16,6 +16,7 @@ class JetReconstructionValidation(JetReconstructionNetwork):
     def __init__(self, options: Options, torch_script: bool = False):
         super(JetReconstructionValidation, self).__init__(options, torch_script)
         self.evaluator = SymmetricEvaluator(self.training_dataset.event_info)
+        self.options = options
         if self.balance_particles:
             self.particle_index_tensor_np = self.particle_index_tensor.cpu().detach().numpy()
             self.particle_weights_tensor_np = self.particle_weights_tensor.cpu().detach().numpy()
@@ -102,6 +103,16 @@ class JetReconstructionValidation(JetReconstructionNetwork):
         weighted_avg_jet_accuracy = weighted_jet_accuracies[has_targets] / tot_target_weights[has_targets]
         metrics["validation_average_jet_accuracy"] = np.mean(weighted_avg_jet_accuracy)
 
+        # Compute reconstruction accuracies for all targets
+        particle_names = self.event_info.event_particles.names
+        for i, name in enumerate(particle_names):
+            sorted_predictions = np.sort(jet_predictions[i], axis = 1)
+            sorted_targets = np.sort(stacked_targets[i], axis = 1)
+            mask_goodreco = np.all(sorted_predictions == sorted_targets, axis = 1)
+            mask_goodreco = mask_goodreco[stacked_masks[i]]
+            accuracy = len(mask_goodreco[mask_goodreco]) / len(mask_goodreco)
+            metrics[f"EVENT/{name}_accuracy"] = accuracy
+
         return metrics
 
     def validation_step(self, batch, batch_idx) -> Dict[str, np.float32]:
@@ -146,10 +157,10 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             delta = regressions[key] - regression_targets[key]
             
             percent_error = np.abs(delta / regression_targets[key])
-            self.log(f"REGRESSION/{key}_percent_error", percent_error.mean(), sync_dist=True)
+            metrics[f"REGRESSION/{key}_percent_error"] = percent_error.mean()
 
             absolute_error = np.abs(delta)
-            self.log(f"REGRESSION/{key}_absolute_error", absolute_error.mean(), sync_dist=True)
+            metrics[f"REGRESSION/{key}_absolute_error"] = absolute_error.mean()
 
             percent_deviation = delta / regression_targets[key]
             self.logger.experiment.add_histogram(f"REGRESSION/{key}_percent_deviation", percent_deviation, self.global_step)
@@ -159,11 +170,21 @@ class JetReconstructionValidation(JetReconstructionNetwork):
 
         for key in classifications:
             accuracy = (classifications[key] == classification_targets[key])
-            self.log(f"CLASSIFICATION/{key}_accuracy", accuracy.mean(), sync_dist=True)
+            metrics[f"CLASSIFICATION/{key}_accuracy"] = accuracy.mean()
 
+        ### Check whether all tracking metrics are available
+        for item in self.options.tracking_metrics:
+            if item not in metrics.keys():
+                raise KeyError(
+                    f"Metric {item} not available. Available metrics: {metrics.keys()}"
+                )
+
+        ### Log metrics
         for name, value in metrics.items():
             if not np.isnan(value):
-                self.log(name, value, sync_dist=True, on_epoch=True)
+                pbar_log = name in self.options.tracking_metrics
+                if name == self.options.central_metric[0]: pbar_log = True
+                self.log(name, value, sync_dist = True, on_epoch = True, prog_bar = pbar_log)
 
         # self.validation_step_metrics_outputs.append(metrics)
 

@@ -268,6 +268,16 @@ class Options(Namespace):
 
         self.trial_output_dir: str = './test_output'
 
+        # =========================================================================================
+        # Logging Options
+        # =========================================================================================
+
+        # Metrics to be tracked on the progress bar, f.e "EVENT/<TARGET_NAME>_accuracy"
+        self.tracking_metrics: list[str] = []
+
+        # Central metric with which different epoch will be evaluated and also whether it shall be maximized or minimized
+        self.central_metric: tuple[str, str] = ("validation_average_jet_accuracy", "max")
+
     def display(self):
         try:
             from rich import get_console
