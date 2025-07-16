@@ -174,7 +174,7 @@ def main(
         ModelCheckpoint(
             #verbose=options.verbose_output,
             verbose=False,
-            filename='{epoch}-{step}-{' + options.central_metric[0] +':.3f}',
+            filename='{epoch}-{step}-{:.3f}',
             monitor=options.central_metric[0],
             save_top_k=3,
             mode=options.central_metric[1],
