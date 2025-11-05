@@ -119,6 +119,60 @@ class JetReconstructionTraining(JetReconstructionNetwork):
         return torch.stack(divergence_loss).mean(0)
         # return -1 * torch.stack(divergence_loss).sum(0) / len(self.training_dataset.unordered_event_transpositions)
 
+    @staticmethod
+    def disco_loss(
+            predictions: Dict[str, Tensor],
+            correlation: Tensor,
+            weights: Tensor = None,
+            scale: float = 1.
+    ):
+
+        ### Assuming only ONE key (could be done more elegantly!)
+        P = 0
+        for value in predictions.values():
+            P = torch.softmax(value, dim = 1)[:, 1]
+
+        ### Mask -1 values
+        mask = correlation > 0
+        P = P[mask]
+        correlation = correlation[mask]
+        weights = weights[mask]
+
+        xx = correlation.view(-1, 1).repeat(1, len(correlation)).view(len(correlation), len(correlation))
+        yy = correlation.repeat(len(correlation), 1).view(len(correlation), len(correlation))
+        amat = (xx - yy).abs()
+
+        xx = P.view(-1, 1).repeat(1, len(P)).view(len(P), len(P))
+        yy = P.repeat(len(P), 1).view(len(P), len(P))
+        bmat = (xx - yy).abs()
+
+        ### TODO: This way, custom weights HAVE to exist
+        amatavg = torch.mean(amat * weights, dim = 1)
+        Amat = amat - amatavg.repeat(len(correlation), 1).view(len(correlation), len(correlation)) \
+               - amatavg.view(-1, 1).repeat(1, len(correlation)).view(len(correlation), len(correlation)) \
+               + torch.mean(amatavg * weights)
+
+        bmatavg = torch.mean(bmat * weights, dim = 1)
+        Bmat = bmat - bmatavg.repeat(len(P), 1).view(len(P), len(P)) \
+               - bmatavg.view(-1, 1).repeat(1, len(P)).view(len(P), len(P)) \
+               + torch.mean(bmatavg * weights)
+
+        ABavg = torch.mean(Amat * Bmat * weights, dim = 1)
+        AAavg = torch.mean(Amat * Amat * weights, dim = 1)
+        BBavg = torch.mean(Bmat * Bmat * weights, dim = 1)
+
+        if scale == 1:
+            dCorr = (torch.mean(ABavg * weights)) / torch.sqrt(
+                (torch.mean(AAavg * weights) * torch.mean(BBavg * weights)))
+        elif scale == 2:
+            dCorr = (torch.mean(ABavg * weights)) ** 2 / (
+                        torch.mean(AAavg * weights) * torch.mean(BBavg * weights))
+        else:
+            dCorr = ((torch.mean(ABavg * weights)) / torch.sqrt(
+                (torch.mean(AAavg * weights) * torch.mean(BBavg * weights)))) ** scale
+
+        return dCorr
+
     def add_kl_loss(
             self,
             total_loss: List[Tensor],
@@ -177,7 +231,8 @@ class JetReconstructionTraining(JetReconstructionNetwork):
             self,
             total_loss: List[Tensor],
             predictions: Dict[str, Tensor],
-            targets: Dict[str, Tensor]
+            targets: Dict[str, Tensor],
+            custom_weights: Tensor
     ) -> List[Tensor]:
         classification_terms = []
 
@@ -190,8 +245,13 @@ class JetReconstructionTraining(JetReconstructionNetwork):
                 current_prediction,
                 current_target,
                 ignore_index=-1,
-                weight=weight
+                weight=weight,
+                reduction='none'
             )
+            current_loss = current_loss * custom_weights
+            ### TODO: Wrong reduction, should be "mean" (see torch's cross entropy docs)
+            ### TODO: Only relevant if self.balance_classifications = True
+            current_loss = torch.mean(current_loss)
 
             classification_terms.append(self.options.classification_loss_scale * current_loss)
 
@@ -199,6 +259,20 @@ class JetReconstructionTraining(JetReconstructionNetwork):
                 self.log(f"loss/classification/{key}", current_loss, sync_dist=True)
 
         return total_loss + classification_terms
+
+    def add_disco_loss(
+            self,
+            predicions: Dict[str, Tensor],
+            correlations: Tensor,
+            custom_weights: Tensor,
+            scale: float,
+            total_loss: List[Tensor]
+    ):
+
+        dCorr = self.disco_loss(predicions, correlations, custom_weights)
+        total_loss = total_loss + [scale * dCorr]
+
+        return total_loss
 
     def training_step(self, batch: Batch, batch_nb: int) -> Dict[str, Tensor]:
         # ===================================================================================================
@@ -282,7 +356,19 @@ class JetReconstructionTraining(JetReconstructionNetwork):
             total_loss = self.add_regression_loss(total_loss, outputs.regressions, batch.regression_targets)
 
         if self.options.classification_loss_scale > 0:
-            total_loss = self.add_classification_loss(total_loss, outputs.classifications, batch.classification_targets)
+            total_loss = self.add_classification_loss(
+                total_loss, outputs.classifications, batch.classification_targets,
+                self.custom_weights_tensor[batch.item]
+            )
+
+        if self.options.disco_loss_scale > 0:
+            total_loss = self.add_disco_loss(
+                outputs.classifications,
+                self.correlations_tensor[batch.item],
+                self.custom_weights_tensor[batch.item],
+                self.options.disco_loss_scale,
+                total_loss
+            )
 
         # ===================================================================================================
         # Combine and return the loss
@@ -290,5 +376,7 @@ class JetReconstructionTraining(JetReconstructionNetwork):
         total_loss = torch.cat([loss.view(-1) for loss in total_loss])
 
         self.log("loss/total_loss", total_loss.sum(), sync_dist=True)
-
+        
+        print(total_loss)
+        print(total_loss.mean())
         return total_loss.mean()
