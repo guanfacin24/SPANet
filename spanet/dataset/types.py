@@ -114,6 +114,7 @@ class FeatureInfo(NamedTuple):
 
 ClassificationInfo = str
 CustomWeightsInfo = str
+CorrelationsInfo = str
 
 
 class SpecialKey(str, Enum):
@@ -128,6 +129,7 @@ class SpecialKey(str, Enum):
     Classifications = "CLASSIFICATIONS"
     Embeddings = "EMBEDDINGS"
     CustomWeights = "WEIGHTS" # Event weights
+    Correlations = "CORRELATIONS" # Correlation variable used for DisCo
 
 
 class Source(NamedTuple):

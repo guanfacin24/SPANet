@@ -54,7 +54,10 @@ class EventInfo:
         classifications: FeynmanDict[str, List[ClassificationInfo]],
 
         # Custom event weights
-        custom_weights: FeynmanDict[str, List[CustomWeightsInfo]]
+        custom_weights: FeynmanDict[str, List[CustomWeightsInfo]],
+
+        # Correlations
+        correlations: FeynmanDict[str, List[CorrelationsInfo]]
     ):
 
         self.input_types = input_types
@@ -84,6 +87,7 @@ class EventInfo:
         self.regressions = regressions
         self.classifications = classifications
         self.custom_weights = custom_weights
+        self.correlations = correlations
 
     def __str__(self):
         info = []
@@ -328,6 +332,11 @@ class EventInfo:
         custom_weights = key_with_default(config, SpecialKey.CustomWeights, default={})
         custom_weights = feynman_fill(custom_weights, event_particles, product_particles, constructor=list)
 
+        # Extract Correlations.
+        # ---------------------
+        correlations = key_with_default(config, SpecialKey.Correlations, default = {})
+        correlations = feynman_fill(correlations, event_particles, product_particles, constructor=list)
+
         return cls(
             input_types,
             input_features,
@@ -335,5 +344,6 @@ class EventInfo:
             product_particles,
             regressions,
             classifications,
-            custom_weights
+            custom_weights,
+            correlations
         )

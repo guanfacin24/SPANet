@@ -112,6 +112,7 @@ class JetReconstructionDataset(Dataset):
             self.regressions, self.regression_types = self.load_regressions(file, limit_index)
             self.classifications = self.load_classifications(file, limit_index)
             self.custom_weights = self.load_custom_weights(file, limit_index)
+            self.correlations = self.load_correlations(file, limit_index)
 
             # Update size information after loading and limiting dataset.
             self.num_events = limit_index.shape[0]
@@ -303,6 +304,20 @@ class JetReconstructionDataset(Dataset):
             except KeyError: continue
 
         return weights
+
+    def load_correlations(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Tensor:
+
+        corr_var_name = self.event_info.correlations[SpecialKey.Event]
+
+        try:
+            # We expect only one correlation to be given here
+            correlations = torch.from_numpy(
+                hdf5_file[SpecialKey.Correlations][SpecialKey.Event][corr_var_name[0]][limit_index]
+            )
+        except KeyError:
+            correlations = torch.from_numpy(np.ones_like(limit_index, dtype = float))
+
+        return correlations
 
     def compute_source_statistics(
             self,

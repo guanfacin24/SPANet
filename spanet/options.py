@@ -235,6 +235,9 @@ class Options(Namespace):
         # Scalar term for classification Cross Entropy loss term
         self.classification_loss_scale: float = 0.0
 
+        # Scalar term for distance correlation
+        self.disco_loss_scale: float = 0.0
+
         # Automatically balance loss terms using Jacobians.
         self.balance_losses: bool = True
 
