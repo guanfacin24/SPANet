@@ -1,7 +1,7 @@
 ## SPANet (RWTH + DESY fork)
 This is a fork of Alexander Shmakov's SPANet repository with various modifications that we need for our physics goals (and conveniance).
 + SPANet base version: v2.2.0
-+ Fork verson: v0.1.0
++ Fork verson: v0.1.1
 
 Here's a (likely incomplete) list of the new features we have implemented:
 
