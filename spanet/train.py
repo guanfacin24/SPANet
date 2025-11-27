@@ -152,23 +152,6 @@ def main(
     #     TensorBoardLogger(save_dir=log_dir, name=name)
     # )
 
-    # Create a tidier progress bar
-    rich_progress_bar = RichProgressBar(
-        theme = RichProgressBarTheme(
-            progress_bar = "cyan",
-            progress_bar_finished = "blue"
-        )
-    )
-
-    class MyProgressBar(RichProgressBar):
-        def __init__(self):
-            super().__init__()
-
-        def on_validation_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-            super().on_validation_epoch_end(trainer, pl_module)
-            metrics = self.get_metrics(trainer, pl_module)
-            self._console.print(metrics)
-
     # Create the checkpoint for this training run. We will save the best validation networks based on 'accuracy'
     callbacks = [
         ModelCheckpoint(
