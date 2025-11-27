@@ -186,6 +186,11 @@ class JetReconstructionValidation(JetReconstructionNetwork):
                 if name == self.options.central_metric[0]: pbar_log = True
                 self.log(name, value, sync_dist = True, on_epoch = True, prog_bar = pbar_log)
 
+        self.logger.log_metrics(
+            {name: value for name, value in metrics.items() if name in self.options.tracking_metrics},
+            self.global_step
+        )
+
         # self.validation_step_metrics_outputs.append(metrics)
 
         return metrics

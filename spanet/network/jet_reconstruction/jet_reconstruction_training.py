@@ -272,6 +272,9 @@ class JetReconstructionTraining(JetReconstructionNetwork):
         dCorr = self.disco_loss(predicions, correlations, custom_weights)
         total_loss = total_loss + [scale * dCorr]
 
+        with torch.no_grad():
+            self.log(f"loss/classification/disco", dCorr, sync_dist = True)
+
         return total_loss
 
     def training_step(self, batch: Batch, batch_nb: int) -> Dict[str, Tensor]:
@@ -376,7 +379,5 @@ class JetReconstructionTraining(JetReconstructionNetwork):
         total_loss = torch.cat([loss.view(-1) for loss in total_loss])
 
         self.log("loss/total_loss", total_loss.sum(), sync_dist=True)
-        
-        print(total_loss)
-        print(total_loss.mean())
+
         return total_loss.mean()
