@@ -10,6 +10,7 @@ from sklearn import metrics as sk_metrics
 from spanet.options import Options
 from spanet.dataset.evaluator import SymmetricEvaluator
 from spanet.network.jet_reconstruction.jet_reconstruction_network import JetReconstructionNetwork
+from spanet.network.utilities.disco_loss import disco_loss
 
 
 class JetReconstructionValidation(JetReconstructionNetwork):
@@ -38,7 +39,15 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             # "average_precision": sk_metrics.average_precision_score
         }
 
-    def compute_metrics(self, jet_predictions, particle_scores, stacked_targets, stacked_masks, stacked_weights):
+    def compute_metrics(
+            self,
+            jet_predictions,
+            particle_scores,
+            stacked_targets,
+            stacked_masks,
+            stacked_weights
+    ):
+
         event_permutation_group = self.event_permutation_tensor.cpu().numpy()
         num_permutations = len(event_permutation_group)
         num_targets, batch_size = stacked_masks.shape
@@ -103,9 +112,11 @@ class JetReconstructionValidation(JetReconstructionNetwork):
         weighted_avg_jet_accuracy = weighted_jet_accuracies[has_targets] / tot_target_weights[has_targets]
         metrics["validation_average_jet_accuracy"] = np.mean(weighted_avg_jet_accuracy)
 
-        # Compute reconstruction accuracies for all targets
+        # Compute reconstruction accuracies for all targets as well as accuracy of detection prediction
         particle_names = self.event_info.event_particles.names
         for i, name in enumerate(particle_names):
+
+            # assignment
             sorted_predictions = np.sort(jet_predictions[i], axis = 1)
             sorted_targets = np.sort(stacked_targets[i], axis = 1)
             mask_goodreco = np.all(sorted_predictions == sorted_targets, axis = 1)
@@ -113,12 +124,21 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             accuracy = len(mask_goodreco[mask_goodreco]) / len(mask_goodreco)
             metrics[f"EVENT/{name}_accuracy"] = accuracy
 
+            # detection
+            accuracy = (particle_predictions[i] == stacked_masks[i]).mean()
+            metrics[f"EVENT/{name}_detection"] = accuracy
+
         return metrics
 
     def validation_step(self, batch, batch_idx) -> Dict[str, np.float32]:
+
         # Run the base prediction step
         sources, num_jets, targets, regression_targets, classification_targets, item = batch
         jet_predictions, particle_scores, regressions, classifications = self.predict(sources)
+
+        # get additional variables
+        custom_weights = self.validation_dataset.custom_weights[batch.item.detach().cpu().numpy()]
+        correlations = self.validation_dataset.correlations[batch.item.detach().cpu().numpy()]
 
         batch_size = num_jets.shape[0]
         num_targets = len(targets)
@@ -169,8 +189,21 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             self.logger.experiment.add_histogram(f"REGRESSION/{key}_absolute_deviation", absolute_deviation, self.global_step)
 
         for key in classifications:
-            accuracy = (classifications[key] == classification_targets[key])
-            metrics[f"CLASSIFICATION/{key}_accuracy"] = accuracy.mean()
+
+            accuracy = (np.round(classifications[key]) == classification_targets[key])
+            accuracy = np.mean(accuracy * custom_weights.numpy())
+
+            roc_auc = sk_metrics.roc_auc_score(
+                classification_targets[key], classifications[key], sample_weight = custom_weights
+            )
+
+            metrics[f"CLASSIFICATION/{key}_accuracy"] = accuracy
+            metrics[f"CLASSIFICATION/{key}_roc-auc"] = roc_auc
+
+            # check whether correlations are passed (they are 1 by default)
+            if np.any(correlations.numpy() != 1):
+                dcorr = disco_loss(torch.from_numpy(classifications[key]), correlations, custom_weights)
+                metrics[f"CLASSIFICATION/{key}_dcorr"] = dcorr
 
         ### Check whether all tracking metrics are available
         for item in self.options.tracking_metrics:

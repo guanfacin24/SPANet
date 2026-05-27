@@ -141,7 +141,7 @@ class JetReconstructionNetwork(JetReconstructionBase):
             }
 
             classifications = {
-                key: value.cpu().argmax(1).numpy()
+                key: torch.softmax(value, dim = 1).cpu().numpy()[:, 1]
                 for key, value in outputs.classifications.items()
             }
 

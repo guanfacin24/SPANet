@@ -21,21 +21,28 @@ class JetReconstructionBase(pl.LightningModule):
 
         self.training_dataset, self.validation_dataset, self.testing_dataset = self.create_datasets()
 
+        ### TODO: so far, weights are ONLY considered for training losses
+        ### TODO: however, ignoring all applied weights in the validation accuracy makes monitoring difficult
+        ### TODO: ---> calculate weights for validation dataset as well
+
         # Compute class weights for particles from the training dataset target distribution
+        # TODO: not propagated yet
         self.balance_particles = False
         if options.balance_particles and options.partial_events:
             index_tensor, weights_tensor = self.training_dataset.compute_particle_balance()
-            self.particle_index_tensor = torch.nn.Parameter(index_tensor, requires_grad=False)
-            self.particle_weights_tensor = torch.nn.Parameter(weights_tensor, requires_grad=False)
+            self.particle_index_tensor = torch.nn.Parameter(index_tensor, requires_grad = False)
+            self.particle_weights_tensor = torch.nn.Parameter(weights_tensor, requires_grad = False)
             self.balance_particles = True
 
         # Compute class weights for jets from the training dataset target distribution
+        # TODO: not propagated yet
         self.balance_jets = False
         if options.balance_jets:
             jet_weights_tensor = self.training_dataset.compute_vector_balance()
             self.jet_weights_tensor = torch.nn.Parameter(jet_weights_tensor, requires_grad=False)
             self.balance_jets = True
 
+        # TODO: not propagated yet
         self.balance_classifications = options.balance_classifications
         if self.balance_classifications:
             classification_weights = {
@@ -49,6 +56,14 @@ class JetReconstructionBase(pl.LightningModule):
         self.custom_weights_tensor = torch.nn.Parameter(
             self.training_dataset.custom_weights, requires_grad = False
         )
+        try:
+            self.custom_weights_tensor_validation = torch.nn.Parameter(
+                self.validation_dataset.custom_weights, requires_grad = False
+            )
+        except Exception as e:
+            print(e)
+            self.custom_weights_tensor_validation = None
+
 
         # Load correlations
         self.correlations_tensor = torch.nn.Parameter(
