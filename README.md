@@ -33,3 +33,13 @@ In this fork, we are able to specify which metrics we would like to track in the
 ```
 In this case, our Higgs is called "H" in the event file and our classification "Signal". By default, the top three best performing networks with regards to the average jet accuracy are saved as checkpoints. But by using the `central_metrics` option, the metrics with which these checkpoints are created can be changed to something else, like the classification accuracy for example. The second entry of this list (`"max"`) determines whether this metrics shall be maximized or minimized.
 > **Note:** No matter what central metric is given, the training will still minimize the loss, which is often a combination of different types of losses (assignment, detection, classification, etc...) with its mixture being specified in the options file. It would also make sense to be able to track the validation losses of these individual loss types. This is however not implemented yet. The best option is to use **tensorboard** to retroactively investigate all different loss curves.
+
+### Distance Correlation (DisCo)
+For classification, one can now enable **distance correlation** (DisCo) to decorrelate the signal score from a given variable during training. To use this feature, one must add an array to the datasets `CORRELATIONS/EVENT/<array-name>` which the score should be decorrelated from. Additionally. the event file must obtain an entry like this:
+```
+CORRELATIONS:
+  EVENT:
+    - <array-name>
+```
+To set the distance correlation loss scale, one must add in the options file `disco_loss_scale: x` with x being the scale.
+> **Note:** This only works for **binary** classifier!
