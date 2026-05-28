@@ -45,7 +45,8 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             particle_scores,
             stacked_targets,
             stacked_masks,
-            stacked_weights
+            stacked_weights,
+            custom_weights
     ):
 
         event_permutation_group = self.event_permutation_tensor.cpu().numpy()
@@ -119,13 +120,13 @@ class JetReconstructionValidation(JetReconstructionNetwork):
             # assignment
             sorted_predictions = np.sort(jet_predictions[i], axis = 1)
             sorted_targets = np.sort(stacked_targets[i], axis = 1)
-            mask_goodreco = np.all(sorted_predictions == sorted_targets, axis = 1)
-            mask_goodreco = mask_goodreco[stacked_masks[i]]
-            accuracy = len(mask_goodreco[mask_goodreco]) / len(mask_goodreco)
+            mask = stacked_masks[i]
+            is_correct = np.all(sorted_predictions == sorted_targets, axis = 1)
+            accuracy = np.mean((is_correct * custom_weights.numpy())[mask])
             metrics[f"EVENT/{name}_accuracy"] = accuracy
 
             # detection
-            accuracy = (particle_predictions[i] == stacked_masks[i]).mean()
+            accuracy = np.mean((particle_predictions[i] == stacked_masks[i]) * custom_weights.numpy())
             metrics[f"EVENT/{name}_detection"] = accuracy
 
         return metrics
@@ -171,7 +172,11 @@ class JetReconstructionValidation(JetReconstructionNetwork):
                     prediction[:, indices] = np.sort(prediction[:, indices])
                     target[:, indices] = np.sort(target[:, indices])
 
-        metrics.update(self.compute_metrics(jet_predictions, particle_scores, stacked_targets, stacked_masks, stacked_weights))
+        metrics.update(
+            self.compute_metrics(
+                jet_predictions, particle_scores, stacked_targets, stacked_masks, stacked_weights, custom_weights
+            )
+        )
 
         for key in regressions:
             delta = regressions[key] - regression_targets[key]
